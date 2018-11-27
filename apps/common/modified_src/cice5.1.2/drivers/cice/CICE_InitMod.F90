@@ -40,7 +40,11 @@
    !--------------------------------------------------------------------
    ! model initialization
    !--------------------------------------------------------------------
-
+      use ecodynamo_ice
+      integer :: ICEALGALOBJ1
+      ICEALGALOBJ1 = 0
+      CALL ICEALGAE_TEST_(ICEALGALOBJ1) 
+      CALL icealgae_test(ICEALGALOBJ1) 
       call cice_init
 
       end subroutine CICE_Initialize
@@ -57,14 +61,15 @@
           init_calendar, calendar
       use ice_communicate, only: init_communicate
       use ice_diagnostics, only: init_diags
-      use ice_domain, only: init_domain_blocks
+      use ice_domain, only: init_domain_blocks,sea_ice_time_bry
       use ice_dyn_eap, only: init_eap
       use ice_dyn_shared, only: kdyn, init_evp
       use ice_fileunits, only: init_fileunits
       use ice_flux, only: init_coupler_flux, init_history_therm, &
           init_history_dyn, init_flux_atm, init_flux_ocn
       use ice_forcing, only: init_forcing_ocn, init_forcing_atmo, &
-          get_forcing_atmo, get_forcing_ocn
+          get_forcing_atmo, get_forcing_ocn, &
+          init_forcing_bry, get_forcing_bry
       use ice_grid, only: init_grid1, init_grid2
       use ice_history, only: init_hist, accum_hist
       use ice_restart_shared, only: restart, runid, runtype
@@ -73,7 +78,7 @@
       use ice_kinds_mod
       use ice_restoring, only: ice_HaloRestore_init
       use ice_shortwave, only: init_shortwave
-      use ice_state, only: tr_aero
+      use ice_state, only: tr_aero 
       use ice_therm_vertical, only: init_thermo_vertical
       use ice_timers, only: timer_total, init_ice_timers, ice_timer_start
       use ice_transport_driver, only: init_transport
@@ -85,7 +90,8 @@
 #ifdef ROMSCOUPLED
       use CICE_MCT, only: init_mct, CICE_MCT_coupling
 #endif
-
+      
+      
       call init_communicate     ! initial setup for message passing
       call init_fileunits       ! unit numbers
       call input_data           ! namelist variables
@@ -145,10 +151,12 @@
    !--------------------------------------------------------------------
 
       call init_forcing_atmo    ! initialize atmospheric forcing (standalone)
+      if (sea_ice_time_bry) call init_forcing_bry ! sea-ice time varying boundaries  
 
 #ifndef coupled
       call get_forcing_atmo     ! atmospheric forcing from data
       call get_forcing_ocn(dt)  ! ocean forcing from data
+      if (sea_ice_time_bry) call get_forcing_bry      ! sea-ice boundary data
 !      if (tr_aero) call faero_data          ! aerosols
       if (tr_aero) call faero_default ! aerosols
       if (skl_bgc) call get_forcing_bgc
@@ -162,9 +170,9 @@
 
       if (write_ic) call accum_hist(dt) ! write initial conditions 
 
-!jd#ifdef ROMSCOUPLED
-!jd      call CICE_MCT_coupling
-!jd#endif
+#ifdef ROMSCOUPLED
+      call CICE_MCT_coupling
+#endif
 
       end subroutine cice_init
 
